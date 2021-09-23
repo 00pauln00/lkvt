@@ -109,11 +109,11 @@ func (conf *config) setUp() {
 	//random size if size= 0
 	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 	if *conf.keySize == 0 {
-		*conf.keySize = random.Intn(255-1) + 1
+		*conf.keySize = (random.Intn(255-1) + 1)%1024
 		log.Info("this is the random key size", *conf.keySize)
 	}
 	if *conf.valueSize == 0 {
-		*conf.valueSize = random.Intn(1048576-16) + 16
+		*conf.valueSize = (random.Intn(1048576-16) + 16)%1024
 		log.Info("this is the random value size", *conf.valueSize)
 	} else if *conf.valueSize < 16 {
 		*conf.valueSize = 16
@@ -217,7 +217,7 @@ func (conf *config) createclient(endpoint []string) {
 		conf.nkvcStop = make(chan int)
 		conf.nkvcClient.Timeout = 10 * time.Second
 		go conf.nkvcClient.Start(conf.nkvcStop, *conf.configPath)
-		time.Sleep(5 * time.Second)
+		conf.nkvcClient.Tillready()
 	case 1:
 		conf.etcdClient, err = clientv3.New(clientv3.Config{
 			Endpoints:   endpoint,
