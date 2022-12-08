@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"common/requestResponseLib"
+	"common/serviceDiscovery"
 	"context"
 	"encoding/binary"
+	"encoding/gob"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -16,9 +19,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"encoding/gob"
-	"common/serviceDiscovery"
-	"common/requestResponseLib"
 
 	"github.com/aybabtme/uniplot/histogram"
 	log "github.com/sirupsen/logrus"
@@ -64,7 +64,7 @@ type config struct {
 	putTimes         []time.Duration
 	getTimes         []time.Duration
 	wg               sync.WaitGroup
-	mapMutex	 sync.Mutex
+	mapMutex         sync.Mutex
 	addr             string
 	port             string
 	lastCon          int
@@ -72,15 +72,15 @@ type config struct {
 	configPath       *string
 	jsonPath         *string
 	chooseAlgo       *int
-        specificServer	 *string
+	specificServer   *string
 
-	Amount     *int    `json:"Request_count"`
-	Putcount   int64  `json:"Put_count"`
-	Getcount   int64  `json:"Get_count"`
-	PutSuccess int64  `json:"Put_success"`
-	GetSuccess int64  `json:"Get_success"`
-	PutFailure int64  `json:"Put_failures"`
-	GetFailure int64  `json:"Get_failures"`
+	Amount     *int  `json:"Request_count"`
+	Putcount   int64 `json:"Put_count"`
+	Getcount   int64 `json:"Get_count"`
+	PutSuccess int64 `json:"Put_success"`
+	GetSuccess int64 `json:"Get_success"`
+	PutFailure int64 `json:"Put_failures"`
+	GetFailure int64 `json:"Get_failures"`
 	CheckMap   map[string]int
 }
 
@@ -131,7 +131,7 @@ func (conf *config) exitApp(skip bool) {
 	go conf.printProgress()
 	conf.wg.Wait()
 	//To avoid executing the stat inbetween
-	if skip{
+	if skip {
 		return
 	}
 	conf.stopClient()
@@ -223,7 +223,7 @@ func (conf *config) createclient(endpoint []string) {
 		conf.NkvcClient.UseSpecificServerName = *conf.specificServer
 		conf.NkvcClient.IsStatRequired = true
 		go conf.NkvcClient.StartClientAPI(conf.nkvcStop, *conf.configPath)
-		conf.NkvcClient.TillReady("" , 5)
+		conf.NkvcClient.TillReady("", 5)
 	case 1:
 		conf.etcdClient, err = clientv3.New(clientv3.Config{
 			Endpoints:   endpoint,
@@ -250,21 +250,21 @@ func (o *keyValue) etcdPut() {
 func (o *keyValue) niovaPut(addr string, port string) bool {
 	reqObj := requestResponseLib.KVRequest{
 		Operation: "write",
-		Key:   o.key.String(),
-		Value: o.valForPut,
+		Key:       o.key.String(),
+		Value:     o.valForPut,
 	}
 	//o.nkvcClient.ReqObj = &reqObj
 
 	var requestByte bytes.Buffer
-        enc := gob.NewEncoder(&requestByte)
-        enc.Encode(reqObj)
-        responseByte, _ := o.nkvcClient.Request(requestByte.Bytes(), "", true)
+	enc := gob.NewEncoder(&requestByte)
+	enc.Encode(reqObj)
+	responseByte, _ := o.nkvcClient.Request(requestByte.Bytes(), "", true)
 
-        //Decode response to IPAddr and Port
-        responseObj := requestResponseLib.KVResponse{}
-        dec := gob.NewDecoder(bytes.NewBuffer(responseByte))
-        dec.Decode(&responseObj)
-        putStatus := responseObj.Status
+	//Decode response to IPAddr and Port
+	responseObj := requestResponseLib.KVResponse{}
+	dec := gob.NewDecoder(bytes.NewBuffer(responseByte))
+	dec.Decode(&responseObj)
+	putStatus := responseObj.Status
 
 	log.WithFields(log.Fields{
 		"kv.key":                o.key,
@@ -306,17 +306,17 @@ func (o *keyValue) niovaGet(addr string, port string) bool {
 	status := true
 	reqObj := requestResponseLib.KVRequest{
 		Operation: "read",
-		Key: o.key.String(),
+		Key:       o.key.String(),
 	}
 	var requestByte bytes.Buffer
-        enc := gob.NewEncoder(&requestByte)
-        enc.Encode(reqObj)
-        responseByte, _ := o.nkvcClient.Request(requestByte.Bytes(), "", false)
+	enc := gob.NewEncoder(&requestByte)
+	enc.Encode(reqObj)
+	responseByte, _ := o.nkvcClient.Request(requestByte.Bytes(), "", false)
 
-        //Decode response to IPAddr and Port
-        responseObj := requestResponseLib.KVResponse{}
-        dec := gob.NewDecoder(bytes.NewBuffer(responseByte))
-        dec.Decode(&responseObj)
+	//Decode response to IPAddr and Port
+	responseObj := requestResponseLib.KVResponse{}
+	dec := gob.NewDecoder(bytes.NewBuffer(responseByte))
+	dec.Decode(&responseObj)
 	getVal := responseObj.Value
 
 	log.WithFields(log.Fields{
@@ -335,7 +335,7 @@ func (o *keyValue) niovaGet(addr string, port string) bool {
 			o.crcChecker(getVal, getFooter)
 			status = o.crcCheck
 		} else {
-			log.Info(o.key.String(), ":" ,string(getVal))
+			log.Info(o.key.String(), ":", string(getVal))
 			log.Error("magic check failes. ", getFooter[0], byte(175))
 		}
 	} else {
@@ -447,12 +447,12 @@ func (conf *config) executeOp(kv keyValue) {
 func (conf *config) lkvtPut(kv keyValue) {
 	switch *conf.database {
 	case 0:
-		atomic.AddInt64(&conf.Putcount,int64(1))
+		atomic.AddInt64(&conf.Putcount, int64(1))
 		status := kv.niovaPut(conf.addr, conf.port)
 		if status {
-			atomic.AddInt64(&conf.PutSuccess,int64(1))
+			atomic.AddInt64(&conf.PutSuccess, int64(1))
 		} else {
-			atomic.AddInt64(&conf.PutFailure,int64(1))
+			atomic.AddInt64(&conf.PutFailure, int64(1))
 		}
 	case 1:
 		kv.etcdPut()
@@ -462,13 +462,13 @@ func (conf *config) lkvtPut(kv keyValue) {
 func (conf *config) lkvtGet(kv keyValue) {
 	switch *conf.database {
 	case 0:
-		atomic.AddInt64(&conf.Getcount,int64(1))
+		atomic.AddInt64(&conf.Getcount, int64(1))
 		status := kv.niovaGet(conf.addr, conf.port)
 		if status {
-                        atomic.AddInt64(&conf.GetSuccess,int64(1))
-                } else {
-                        atomic.AddInt64(&conf.GetFailure,int64(1))
-                }
+			atomic.AddInt64(&conf.GetSuccess, int64(1))
+		} else {
+			atomic.AddInt64(&conf.GetFailure, int64(1))
+		}
 	case 1:
 		kv.etcdGet()
 	}
@@ -509,29 +509,29 @@ func (conf *config) write_read() {
 
 	//Do reads
 	*conf.putPercentage = float64(0)
-        for c := 0; c < *conf.concurrency; c++ {
+	for c := 0; c < *conf.concurrency; c++ {
 		go conf.execute(c, ran, &conf.wg)
-                time.Sleep(1000)
-        }
+		time.Sleep(1000)
+	}
 
 }
 
 func main() {
 	log.Info("starting the app...")
 	conf := config{
-		putPercentage: flag.Float64("pp", -1, "percentage of puts versus gets. 0.50 means 50% put 50% get"),
-		valueSize:     flag.Int("vs", 0, "size of the value in bytes. min:16 bytes. ‘0’ means that the size is random"),
-		keySize:       flag.Int("ks", 0, "size of the key in bytes. min:1 byte. ‘0’ means that the size is random"),
-		Amount:        flag.Int("n", 1, "number of operations"),
-		keyPrefix:     flag.String("kp", "key", "specify a key prefix"),
-		seed:          flag.Int64("s", time.Now().UnixNano(), "seed to the random number generator"),
-		concurrency:   flag.Int("c", 1, "The number of concurrent requests which may be outstanding at any one time"),
-		endpoints:     flag.String("ep", "http://127.0.0.100:2380,http://127.0.0.101:2380,http://127.0.0.102:2380,http://127.0.0.103:2380,http://127.0.0.104:2380", "endpoints seperated by comas ex.http://127.0.0.100:2380,http://127.0.0.101:2380"),
-		database:      flag.Int("d", 0, "the database you would like to use (0 = pmdb 1 = etcd)"),
-		configPath:    flag.String("cp", "./config", "Path to niova config file"),
-		jsonPath:      flag.String("jp", "execution-summary", "Path to execution summary json file"),
-		chooseAlgo:    flag.Int("ca", 0, "Algorithm for choosing niovakv_server [0-Random , 1-Round robin, 2-specific]"),
-		specificServer:flag.String("ss", "-1", "Specific server name to choose in case if -ca set to 2"),
+		putPercentage:  flag.Float64("pp", -1, "percentage of puts versus gets. 0.50 means 50% put 50% get"),
+		valueSize:      flag.Int("vs", 0, "size of the value in bytes. min:16 bytes. ‘0’ means that the size is random"),
+		keySize:        flag.Int("ks", 0, "size of the key in bytes. min:1 byte. ‘0’ means that the size is random"),
+		Amount:         flag.Int("n", 1, "number of operations"),
+		keyPrefix:      flag.String("kp", "key", "specify a key prefix"),
+		seed:           flag.Int64("s", time.Now().UnixNano(), "seed to the random number generator"),
+		concurrency:    flag.Int("c", 1, "The number of concurrent requests which may be outstanding at any one time"),
+		endpoints:      flag.String("ep", "http://127.0.0.100:2380,http://127.0.0.101:2380,http://127.0.0.102:2380,http://127.0.0.103:2380,http://127.0.0.104:2380", "endpoints seperated by comas ex.http://127.0.0.100:2380,http://127.0.0.101:2380"),
+		database:       flag.Int("d", 0, "the database you would like to use (0 = pmdb 1 = etcd)"),
+		configPath:     flag.String("cp", "./config", "Path to niova config file"),
+		jsonPath:       flag.String("jp", "execution-summary", "Path to execution summary json file"),
+		chooseAlgo:     flag.Int("ca", 0, "Algorithm for choosing niovakv_server [0-Random , 1-Round robin, 2-specific]"),
+		specificServer: flag.String("ss", "-1", "Specific server name to choose in case if -ca set to 2"),
 	}
 	conf.setUp()
 
