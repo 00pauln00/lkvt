@@ -73,6 +73,7 @@ type config struct {
 	jsonPath         *string
 	chooseAlgo       *int
 	specificServer   *string
+	raftUUID         *string
 
 	Amount     *int  `json:"Request_count"`
 	Putcount   int64 `json:"Put_count"`
@@ -222,6 +223,7 @@ func (conf *config) createclient(endpoint []string) {
 		conf.NkvcClient.ServerChooseAlgorithm = *conf.chooseAlgo
 		conf.NkvcClient.UseSpecificServerName = *conf.specificServer
 		conf.NkvcClient.IsStatRequired = true
+		conf.NkvcClient.RaftUUID = *conf.raftUUID
 		go conf.NkvcClient.StartClientAPI(conf.nkvcStop, *conf.configPath)
 		conf.NkvcClient.TillReady("", 5)
 	case 1:
@@ -532,6 +534,7 @@ func main() {
 		jsonPath:       flag.String("jp", "execution-summary", "Path to execution summary json file"),
 		chooseAlgo:     flag.Int("ca", 0, "Algorithm for choosing niovakv_server [0-Random , 1-Round robin, 2-specific]"),
 		specificServer: flag.String("ss", "-1", "Specific server name to choose in case if -ca set to 2"),
+		raftUUID:       flag.String("ru", "", "Specify the raftUUID which is to be queried"),
 	}
 	conf.setUp()
 
