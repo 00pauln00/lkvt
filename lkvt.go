@@ -20,6 +20,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	PumiceDBCommon "niova/go-pumicedb-lib/common"
+
 	"github.com/aybabtme/uniplot/histogram"
 	log "github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/clientv3"
@@ -260,7 +262,20 @@ func (o *keyValue) niovaPut(addr string, port string) bool {
 	var requestByte bytes.Buffer
 	enc := gob.NewEncoder(&requestByte)
 	enc.Encode(reqObj)
-	responseByte, _ := o.nkvcClient.Request(requestByte.Bytes(), "", true)
+
+	var pumiceReqObj PumiceDBCommon.PumiceRequest
+	pumiceReqObj.ReqType = 0
+	pumiceReqObj.ReqPayload = requestByte.Bytes()
+
+	var pumiceRequestBytes bytes.Buffer
+	pumiceEnc := gob.NewEncoder(&pumiceRequestBytes)
+	err := pumiceEnc.Encode(pumiceReqObj)
+	if err != nil {
+		log.Error("Encoding error : ", err)
+		return false
+	}
+
+	responseByte, _ := o.nkvcClient.Request(pumiceRequestBytes.Bytes(), "", true)
 
 	//Decode response to IPAddr and Port
 	responseObj := requestResponseLib.KVResponse{}
@@ -313,7 +328,20 @@ func (o *keyValue) niovaGet(addr string, port string) bool {
 	var requestByte bytes.Buffer
 	enc := gob.NewEncoder(&requestByte)
 	enc.Encode(reqObj)
-	responseByte, _ := o.nkvcClient.Request(requestByte.Bytes(), "", false)
+
+	var pumiceReqObj PumiceDBCommon.PumiceRequest
+	pumiceReqObj.ReqType = 0
+	pumiceReqObj.ReqPayload = requestByte.Bytes()
+
+	var pumiceRequestBytes bytes.Buffer
+	pumiceEnc := gob.NewEncoder(&pumiceRequestBytes)
+	err := pumiceEnc.Encode(pumiceReqObj)
+	if err != nil {
+		log.Error("Encoding error : ", err)
+		return false
+	}
+
+	responseByte, _ := o.nkvcClient.Request(pumiceRequestBytes.Bytes(), "", false)
 
 	//Decode response to IPAddr and Port
 	responseObj := requestResponseLib.KVResponse{}
